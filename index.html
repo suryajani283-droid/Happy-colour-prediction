@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Trade Simulator</title>
+    <style>
+        :root { --red: #e74c3c; --green: #2ecc71; --violet: #9b59b6; }
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; text-align: center; margin: 0; }
+        .header { background: #2c3e50; padding: 20px; border-bottom: 3px solid #f1c40f; }
+        .wallet { font-size: 1.5rem; color: #f1c40f; margin-top: 10px; }
+        .timer-circle { width: 120px; height: 120px; border: 5px solid #f1c40f; border-radius: 50%; margin: 20px auto; line-height: 120px; font-size: 2.5rem; font-weight: bold; }
+        .btn-group { display: flex; justify-content: center; gap: 10px; padding: 20px; }
+        .btn { border: none; padding: 15px 30px; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; transition: 0.3s; }
+        .btn:active { transform: scale(0.9); }
+        .bg-green { background: var(--green); } .bg-red { background: var(--red); } .bg-violet { background: var(--violet); }
+        .history { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 20px; }
+        .dot { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Win Go (Dummy)</h1>
+        <div class="wallet">Balance: ₹<span id="balDisplay">0</span></div>
+    </div>
+
+    <div class="timer-circle" id="timer">30</div>
+
+    <div class="btn-group">
+        <button class="btn bg-green" onclick="bet('Green')">Green</button>
+        <button class="btn bg-violet" onclick="bet('Violet')">Violet</button>
+        <button class="btn bg-red" onclick="bet('Red')">Red</button>
+    </div>
+
+    <h3>Game History</h3>
+    <div class="history" id="history"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const balDisplay = document.getElementById('balDisplay');
+        const timerDisplay = document.getElementById('timer');
+        const historyDisplay = document.getElementById('history');
+
+        function bet(color) {
+            socket.emit('place_bet', { choice: color, amount: 100 });
+        }
+
+        socket.on('timer_update', t => {
+            timerDisplay.innerText = t;
+            timerDisplay.style.color = t <= 5 ? 'red' : 'white';
+        });
+
+        socket.on('init_data', data => {
+            balDisplay.innerText = data.balance;
+            renderHistory(data.history);
+        });
+
+        socket.on('update_balance', b => balDisplay.innerText = b);
+
+        socket.on('round_end', data => {
+            renderHistory(data.history);
+        });
+
+        socket.on('bet_result', data => {
+            alert(data.status === 'win' ? `You Won ₹${data.amount}!` : "Better luck next time!");
+            // Small delay to let balance update
+            setTimeout(() => location.reload(), 1500); 
+        });
+
+        function renderHistory(list) {
+            historyDisplay.innerHTML = list.map(item => `
+                <div class="dot" style="background:${item.color.toLowerCase()}">${item.number}</div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
