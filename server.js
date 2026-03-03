@@ -8,108 +8,153 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-// --- DATABASE (Temporary - Resets on Restart) ---
-let users = {}; // Stores { mobile: { password, balance, history } }
+// --- DATABASE SIMULATION ---
+let users = {}; 
 let gameHistory = [];
 let timeLeft = 30;
-let currentResult = { number: 5, color: 'Violet' };
 
-// --- HTML CONTENT ---
+// --- FULL UI CODE ---
 const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Win Go Pro</title>
+    <title>Win Go Elite</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; text-align: center; margin: 0; }
-        .auth-container { padding: 50px 20px; }
-        .game-container { display: none; }
-        input { width: 80%; padding: 12px; margin: 10px; border-radius: 5px; border: none; }
-        .btn { padding: 12px 20px; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer; }
-        .btn-auth { background: #f1c40f; color: black; width: 85%; }
-        .timer { font-size: 40px; color: #f1c40f; margin: 10px; }
-        .wallet-box { background: #333; padding: 15px; margin: 10px; border-radius: 10px; }
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding: 10px; }
-        .num-btn { background: #444; color: white; padding: 15px 0; border-radius: 5px; border: 1px solid #555; }
-        .color-btns { display: flex; justify-content: space-around; margin: 15px 0; }
-        .green { background: #2ecc71; } .red { background: #e74c3c; } .violet { background: #9b59b6; }
-        .dot { height: 15px; width: 15px; border-radius: 50%; display: inline-block; margin: 2px; }
+        :root { --primary: #f1c40f; --dark: #121212; --card: #1e1e1e; }
+        body { font-family: 'Poppins', sans-serif; background: var(--dark); color: white; margin: 0; overflow-x: hidden; }
+        
+        /* Header & Profile */
+        .header { background: var(--card); padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; }
+        .profile-icon { font-size: 24px; color: var(--primary); cursor: pointer; }
+        
+        /* Side Menu Drawer */
+        .drawer { position: fixed; top: 0; right: -280px; width: 250px; height: 100%; background: #222; z-index: 1000; transition: 0.3s; padding: 20px; box-shadow: -5px 0 15px rgba(0,0,0,0.5); }
+        .drawer.active { right: 0; }
+        .drawer-item { padding: 15px; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 15px; cursor: pointer; }
+        .drawer-item:hover { background: #333; }
+
+        /* Game UI */
+        .game-container { padding: 15px; }
+        .wallet-card { background: linear-gradient(45deg, #f39c12, #f1c40f); color: black; padding: 20px; border-radius: 15px; margin-bottom: 20px; font-weight: bold; }
+        .timer-section { font-size: 35px; margin: 15px 0; color: var(--primary); }
+        
+        /* Bet Amount Selector */
+        .amount-selector { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+        .amt-btn { background: #333; border: 1px solid var(--primary); color: white; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+        .amt-btn.selected { background: var(--primary); color: black; }
+
+        /* Betting Grid */
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 15px 0; }
+        .num-btn { background: #2c3e50; border: none; color: white; padding: 15px 0; border-radius: 8px; font-size: 18px; font-weight: bold; }
+        .color-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .c-btn { flex: 1; padding: 15px; border: none; border-radius: 8px; font-weight: bold; color: white; }
+        
+        .green { background: #27ae60; } .red { background: #c0392b; } .violet { background: #8e44ad; }
+        .history-dot { height: 15px; width: 15px; border-radius: 50%; display: inline-block; margin: 3px; }
+
+        /* Auth Screen */
+        #authPage { text-align: center; padding-top: 100px; }
+        .input-group { margin: 15px; }
+        input { width: 80%; padding: 12px; border-radius: 8px; border: none; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <div id="authPage" class="auth-container">
-        <h2>Win Go Login</h2>
-        <input type="text" id="mobile" placeholder="Mobile Number">
-        <input type="password" id="pass" placeholder="Password">
-        <button class="btn btn-auth" onclick="handleAuth()">Login / Sign Up</button>
-        <p style="font-size: 12px; color: #888;">New users get ₹1000 Bonus!</p>
+    <div id="drawer" class="drawer">
+        <div style="text-align:right" onclick="toggleDrawer()"><i class="fas fa-times"></i></div>
+        <div class="drawer-item"><i class="fas fa-user"></i> Profile Settings</div>
+        <div class="drawer-item" onclick="alert('Balance Refilled!')"><i class="fas fa-wallet"></i> Deposit</div>
+        <div class="drawer-item"><i class="fas fa-university"></i> Withdrawal</div>
+        <div class="drawer-item"><i class="fas fa-info-circle"></i> About App</div>
+        <div class="drawer-item" onclick="location.reload()" style="color:#e74c3c"><i class="fas fa-sign-out-alt"></i> Logout</div>
     </div>
 
-    <div id="gamePage" class="game-container">
-        <div class="wallet-box">
-            <span>Balance: ₹<span id="balDisplay">0</span></span>
+    <div id="authPage">
+        <h1>WIN GO</h1>
+        <div class="input-group">
+            <input type="text" id="mobile" placeholder="Mobile Number">
+            <input type="password" id="pass" placeholder="Password">
+            <button class="c-btn green" style="width: 85%" onclick="login()">Login / Sign Up</button>
         </div>
-        
-        <div class="timer" id="timer">30</div>
+    </div>
 
-        <div class="color-btns">
-            <button class="btn green" onclick="placeBet('Green')">Green</button>
-            <button class="btn violet" onclick="placeBet('Violet')">Violet</button>
-            <button class="btn red" onclick="placeBet('Red')">Red</button>
+    <div id="gamePage" style="display:none">
+        <div class="header">
+            <span>WIN GO 1MIN</span>
+            <div class="profile-icon" onclick="toggleDrawer()"><i class="fas fa-user-circle"></i></div>
         </div>
 
-        <div class="grid" id="numberGrid">
+        <div class="game-container">
+            <div class="wallet-card">
+                <div>Available Balance</div>
+                <div style="font-size: 24px;">₹<span id="balDisplay">0</span></div>
             </div>
 
-        <h3>Recent Results</h3>
-        <div id="history"></div>
+            <div class="timer-section">00:<span id="timer">30</span></div>
+
+            <div class="amount-selector">
+                <button class="amt-btn selected" onclick="setAmt(10, this)">₹10</button>
+                <button class="amt-btn" onclick="setAmt(100, this)">₹100</button>
+                <button class="amt-btn" onclick="setAmt(1000, this)">₹1000</button>
+            </div>
+
+            <div class="color-row">
+                <button class="c-btn green" onclick="placeBet('Green')">Green</button>
+                <button class="c-btn violet" onclick="placeBet('Violet')">Violet</button>
+                <button class="c-btn red" onclick="placeBet('Red')">Red</button>
+            </div>
+
+            <div class="grid" id="numGrid"></div>
+
+            <h3>Game Records</h3>
+            <div id="history"></div>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        let currentBetAmount = 10;
         let myMobile = "";
 
-        // Generate Number Buttons
-        const grid = document.getElementById('numberGrid');
-        for(let i=0; i<=9; i++) {
-            grid.innerHTML += \`<button class="num-btn" onclick="placeBet('\${i}')">\${i}</button>\`;
+        // UI Helpers
+        function toggleDrawer() { document.getElementById('drawer').classList.toggle('active'); }
+        function setAmt(val, btn) {
+            currentBetAmount = val;
+            document.querySelectorAll('.amt-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
         }
 
-        function handleAuth() {
+        const grid = document.getElementById('numGrid');
+        for(let i=0; i<=9; i++) grid.innerHTML += \`<button class="num-btn" onclick="placeBet('\${i}')">\${i}</button>\`;
+
+        function login() {
             const m = document.getElementById('mobile').value;
-            const p = document.getElementById('pass').value;
-            if(m.length < 10) return alert("Enter valid mobile");
+            if(m.length < 10) return alert("Invalid Mobile");
             myMobile = m;
-            socket.emit('auth', { mobile: m, pass: p });
+            socket.emit('auth', { mobile: m });
         }
-
-        socket.on('auth_success', (data) => {
-            document.getElementById('authPage').style.display = 'none';
-            document.getElementById('gamePage').style.display = 'block';
-            document.getElementById('balDisplay').innerText = data.balance;
-        });
 
         function placeBet(type) {
-            const amount = 100; // Default bet
-            socket.emit('bet', { mobile: myMobile, type: type, amount: amount });
-            alert("Bet placed on " + type);
+            socket.emit('bet', { mobile: myMobile, type: type, amount: currentBetAmount });
         }
 
-        socket.on('timer', t => document.getElementById('timer').innerText = t);
+        socket.on('auth_success', d => {
+            document.getElementById('authPage').style.display = 'none';
+            document.getElementById('gamePage').style.display = 'block';
+            document.getElementById('balDisplay').innerText = d.balance;
+        });
+
+        socket.on('timer', t => document.getElementById('timer').innerText = t < 10 ? '0'+t : t);
         socket.on('update_bal', b => document.getElementById('balDisplay').innerText = b);
-        
-        socket.on('round_end', data => {
-            alert("Result: " + data.result.number + " (" + data.result.color + ")");
-            updateHistory(data.history);
+        socket.on('round_end', d => {
+            updateHistory(d.history);
         });
 
         function updateHistory(h) {
-            document.getElementById('history').innerHTML = h.map(x => \`
-                <span class="dot" style="background:\${x.color.toLowerCase()}"></span>
-            \`).join('');
+            document.getElementById('history').innerHTML = h.map(x => \`<span class="history-dot" style="background:\${x.color.toLowerCase()}"></span>\`).join('');
         }
     </script>
 </body>
@@ -118,57 +163,46 @@ const htmlContent = `
 
 app.get('/', (req, res) => res.send(htmlContent));
 
-// --- LOGIC ---
+// --- SERVER LOGIC ---
 setInterval(() => {
     timeLeft--;
     if (timeLeft <= 0) {
-        // Generate Winner
         const num = Math.floor(Math.random() * 10);
         let color = (num % 2 === 0) ? 'Red' : 'Green';
         if (num === 0 || num === 5) color = 'Violet';
         
-        currentResult = { number: num, color: color };
-        gameHistory.unshift(currentResult);
+        const res = { number: num, color: color };
+        gameHistory.unshift(res);
         if(gameHistory.length > 20) gameHistory.pop();
 
-        // Process Wins
-        Object.keys(users).forEach(mob => {
-            const user = users[mob];
-            if (user.currentBet) {
-                const bet = user.currentBet;
-                // Color win (2x)
-                if (bet.type === color) user.balance += bet.amount * 2;
-                // Number win (9x)
-                else if (bet.type == num) user.balance += bet.amount * 9;
-                
-                user.currentBet = null;
-                io.emit('update_bal_all', { mobile: mob, balance: user.balance });
+        Object.keys(users).forEach(m => {
+            const u = users[m];
+            if(u.bet) {
+                if(u.bet.type === color) u.balance += u.bet.amount * 1.9;
+                else if(u.bet.type == num) u.balance += u.bet.amount * 8;
+                u.bet = null;
+                io.emit('update_bal_all', { mobile: m, balance: u.balance });
             }
         });
-
-        io.emit('round_end', { result: currentResult, history: gameHistory });
+        io.emit('round_end', { result: res, history: gameHistory });
         timeLeft = 30;
     }
     io.emit('timer', timeLeft);
 }, 1000);
 
-io.on('connection', (socket) => {
-    socket.on('auth', (data) => {
-        if (!users[data.mobile]) {
-            // Register New User with 1000 Bonus
-            users[data.mobile] = { password: data.pass, balance: 1000, currentBet: null };
-        }
-        socket.emit('auth_success', { balance: users[data.mobile].balance });
+io.on('connection', (s) => {
+    s.on('auth', (d) => {
+        if(!users[d.mobile]) users[d.mobile] = { balance: 1000, bet: null };
+        s.emit('auth_success', { balance: users[d.mobile].balance });
     });
-
-    socket.on('bet', (data) => {
-        const u = users[data.mobile];
-        if (u && u.balance >= data.amount && timeLeft > 5) {
-            u.balance -= data.amount;
-            u.currentBet = data;
-            socket.emit('update_bal', u.balance);
+    s.on('bet', (d) => {
+        const u = users[d.mobile];
+        if(u && u.balance >= d.amount && timeLeft > 5) {
+            u.balance -= d.amount;
+            u.bet = d;
+            s.emit('update_bal', u.balance);
         }
     });
 });
 
-server.listen(PORT, () => console.log("Win Go Live"));
+server.listen(PORT, () => console.log("Server Running"));
